@@ -93,7 +93,7 @@ phishing-detection/
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your-username>/phishing-detection.git
+git clone https://github.com/vaishnavi-2105/phishing-detection.git
 cd phishing-detection
 ```
 
