@@ -20,7 +20,13 @@ phishing-url-detection/
 ├── utils.py                     # Feature extraction logic
 │
 ├── preprocessed_output/
-│   └── scaler.pkl               # Fitted StandardScaler
+│   └── scaler.pkl             # Fitted StandardScaler
+│   └── correlation_heatmap
+│   └── feature_names.pkl
+│   └── X_test.pkl
+│   └── X_train.pkl
+│   └── y_test.pkl
+│   └── y_train.pkl
 │
 ├── saved_models/
 │   ├── logistic_regression.pkl
