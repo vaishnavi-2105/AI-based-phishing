@@ -1,181 +1,165 @@
-# 🛡️ AI-Based Phishing Detection System
+# 🎣 Phishing URL Detection
 
-> **Mini Project | Dept. of CSE | Neil Gogte Institute of Technology | 2025–26**  
-> Supervised machine learning system to classify URLs as **Phishing** or **Legitimate**
-
----
-
-## 📌 Overview
-
-Phishing attacks exploit fraudulent URLs to steal sensitive user information. Traditional blacklist-based approaches fail to catch new and evolving threats. This system uses supervised ML to classify URLs in real time through a structured pipeline:
-
-```
-Raw URL → Preprocessing → Feature Extraction (15 features) → ML Model → Phishing / Legitimate + Confidence %
-```
-
-**Dataset:** 549,346 labeled URLs (Kaggle — Phishing Site URLs)  
-**Problem Type:** Binary Classification (Phishing = 1, Legitimate = 0)  
-**Interface:** Flask-based web application (localhost)
+A machine learning web application that detects phishing URLs in real time using an ensemble of 5 trained classifiers — achieving up to **99.4% accuracy**.
 
 ---
 
-## 🧠 ML Models Used
+## 📋 Project Overview
 
-| Model | Type | Key Parameters |
-|---|---|---|
-| Logistic Regression | Linear Classifier | C=1.0, solver='lbfgs' |
-| Random Forest | Ensemble (Bagging) | n_estimators=100 |
-| Support Vector Machine | Kernel-based | kernel='rbf', C=1.0 |
-| Voting Classifier | Ensemble (Soft Voting) | LR + RF + SVM |
-| Stacking Classifier | Ensemble (Stacking) | Base: LR, RF, SVM — Meta: LR |
-
----
-
-## ⚙️ Features Extracted (15 URL Features)
-
-| # | Feature | Type |
-|---|---|---|
-| 1 | url_length | Numeric |
-| 2 | num_dots | Numeric |
-| 3 | num_hyphens | Numeric |
-| 4 | num_slashes | Numeric |
-| 5 | num_at | Binary |
-| 6 | has_ip | Binary |
-| 7 | has_https | Binary |
-| 8 | domain_length | Numeric |
-| 9 | num_subdomains | Numeric |
-| 10 | digit_ratio | Float |
-| 11 | special_char_count | Numeric |
-| 12 | tld_length | Numeric |
-| 13 | path_length | Numeric |
-| 14 | num_params | Numeric |
-| 15 | has_suspicious_words | Binary |
+This project trains multiple ML models on a labeled dataset of phishing and benign URLs, extracts 27 hand-crafted lexical features per URL, and serves predictions through a Flask web API backed by all 5 models simultaneously.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
-phishing-detection/
+phishing-url-detection/
 │
-├── dataset/
-│   └── phishing_site_urls.csv          # Raw dataset (download from Kaggle)
+├── train.ipynb                  # Full training pipeline (Kaggle notebook)
+├── app.py                       # Flask web application
+├── utils.py                     # Feature extraction logic
 │
-├── src/
-│   ├── preprocessing.py                # URL cleaning, label encoding
-│   ├── feature_engineering.py          # 15-feature extraction logic
-│   ├── models.py                       # LR, RF, SVM training
-│   ├── ensemble.py                     # Voting + Stacking classifiers
-│   └── evaluate.py                     # Metrics, confusion matrix, comparison
+├── preprocessed_output/
+│   └── scaler.pkl               # Fitted StandardScaler
 │
-├── models/
-│   ├── lr_model.pkl
-│   ├── rf_model.pkl
-│   ├── svm_model.pkl
-│   ├── voting_model.pkl
-│   └── stacking_model.pkl
+├── saved_models/
+│   ├── logistic_regression.pkl
+│   ├── random_forest.pkl
+│   ├── xgboost.pkl
+│   ├── voting_classifier.pkl
+│   ├── stacking_classifier.pkl
+│   └── best_model.pkl           # Alias for the best-performing model
 │
-├── templates/
-│   ├── index.html                      # URL input form
-│   ├── result.html                     # Prediction result page
-│   ├── compare.html                    # Model comparison page
-│   └── admin.html                      # Admin dashboard
-│
-├── static/                             # CSS, JS assets
-├── app.py                              # Flask application entry point
-├── requirements.txt
-└── README.md
+└── templates/
+    └── index.html               # Frontend UI
 ```
 
 ---
 
-## 🚀 Setup and Run
+## ✨ Features
 
-### 1. Clone the Repository
+- **27 lexical URL features** extracted without external DNS or WHOIS lookups — fully offline
+- **5 trained models**: Logistic Regression, Random Forest, XGBoost, Voting Classifier, Stacking Classifier
+- **Consensus prediction** across all models (majority vote)
+- **Per-model probability scores** returned on every request
+- **SHAP explainability** (XGBoost) and feature importance plots generated during training
+
+---
+
+## 🤖 Models & Performance
+
+| Model               | Accuracy | F1-Score | ROC-AUC |
+|---------------------|----------|----------|---------|
+| Logistic Regression | 98.66%   | 0.9708   | 0.9932  |
+| Random Forest       | 99.41%   | 0.9871   | 0.9981  |
+| XGBoost             | 99.38%   | 0.9866   | 0.9980  |
+| Voting Classifier   | 99.39%   | 0.9868   | 0.9978  |
+| Stacking Classifier | 99.36%   | 0.9863   | 0.9981  |
+
+---
+
+## 🔧 Feature Engineering
+
+Features are extracted by `utils.py` and mirror the exact preprocessing from training. All 27 features are purely lexical (no network calls required):
+
+**Lengths (5):** `url_length`, `hostname_length`, `path_length`, `query_length`, `fragment_length`
+
+**Structural (2):** `num_subdomains`, `path_depth`
+
+**Character counts (12):** counts of `.` `-` `_` `/` `?` `=` `@` `&` `!` `#` `%` `+`
+
+**Composition (3):** `digit_count`, `letter_count`, `digit_letter_ratio`
+
+**Boolean signals (5):** `has_ip`, `has_sensitive_word`, `is_shortened`, `https_in_hostname`, `uses_https`
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
 ```bash
-git clone https://github.com/vaishnavi-2105/phishing-detection.git
-cd phishing-detection
+pip install flask scikit-learn xgboost joblib numpy
 ```
 
-### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+### Running the App
 
-### 3. Download the Dataset
-Download from [Kaggle](https://www.kaggle.com/datasets/taruntiwarihp/phishing-site-urls) and place `phishing_site_urls.csv` inside the `dataset/` folder.
-
-### 4. Train the Models
-```bash
-python src/models.py
-python src/ensemble.py
-```
-Trained `.pkl` files will be saved to the `models/` folder.
-
-### 5. Run the Flask App
 ```bash
 python app.py
 ```
-Open your browser and go to: `http://127.0.0.1:5000`
 
----
+The server starts on `http://0.0.0.0:5000`. Open your browser and navigate to `http://localhost:5000`.
 
-## 📊 Evaluation Metrics
+### Making a Prediction (API)
 
-| Metric | Description |
-|---|---|
-| Accuracy | Overall correct predictions |
-| Precision | Low false positive rate |
-| Recall | Low false negative rate |
-| F1-Score | Balanced precision and recall |
-| ROC-AUC | Overall discriminative ability |
-| Confusion Matrix | Visual TP/TN/FP/FN breakdown |
-
----
-
-## 🖥️ System Requirements
-
-| Component | Specification |
-|---|---|
-| OS | Windows 10/11 or Ubuntu 20.04+ |
-| Python | 3.9+ |
-| RAM | 4 GB minimum (8 GB recommended) |
-| Storage | 2 GB free disk space |
-| GPU | Not required |
-
----
-
-## 📦 requirements.txt (Key Libraries)
-
+```bash
+curl -X POST http://localhost:5000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://paypal-login-verify.suspicious.com/signin"}'
 ```
-flask
-scikit-learn
-pandas
-numpy
-matplotlib
-seaborn
-imbalanced-learn
-joblib
+
+**Example response:**
+
+```json
+{
+  "url": "http://paypal-login-verify.suspicious.com/signin",
+  "consensus": "Phishing",
+  "phishing_votes": 5,
+  "total_models": 5,
+  "stacking_verdict": {
+    "model": "Stacking Classifier",
+    "label": "Phishing",
+    "phishing_probability": 99.21,
+    "safe_probability": 0.79,
+    "confidence": 99.21
+  },
+  "results": [ ... ]
+}
 ```
 
 ---
 
-## 🔮 Future Enhancements
+## 🏋️ Training the Models
 
-- LSTM/CNN-based sequence analysis of URLs
-- WHOIS domain age and DNS lookup features
-- Browser extension for real-time detection
-- Periodic retraining with PhishTank live feed
+Training is done in `train.ipynb`, designed to run on Kaggle with the [Phishing URLs Dataset](https://www.kaggle.com/datasets/hassaanmustafavi/phishing-urls-dataset).
+
+**Pipeline steps:**
+
+1. Discover and load CSV dataset
+2. Clean and normalise labels (`benign=0`, `phishing=1`)
+3. Extract 27 lexical features (vectorised with pandas)
+4. Scale features with `StandardScaler`
+5. Train 5 models (with `GridSearchCV` / `RandomizedSearchCV` for tuning)
+6. Evaluate on held-out test set (F1, Precision, Recall, PR-AUC, ROC-AUC, Accuracy)
+7. Generate SHAP beeswarm plot and feature importance charts
+8. Export all model `.pkl` files and the scaler
 
 ---
 
-## 📄 References
+## 📊 Training Outputs
 
-1. [Kaggle – Phishing Site URLs Dataset](https://www.kaggle.com/datasets/taruntiwarihp/phishing-site-urls)
-2. [Scikit-learn Documentation](https://scikit-learn.org/stable/)
-3. [Flask Documentation](https://flask.palletsprojects.com/)
-4. [UCI Phishing Websites Dataset](https://archive.ics.uci.edu/dataset/327/phishing+websites)
+The notebook saves the following to `preprocessed_output/` and `saved_models/`:
+
+| File | Description |
+|------|-------------|
+| `scaler.pkl` | Fitted StandardScaler |
+| `*.pkl` | All 5 trained model files |
+| `best_model.pkl` | Alias for the highest F1 model |
+| `deployment_bundle.pkl` | Model + feature names in one file |
+| `feature_importance_rf_vs_xgb.png` | Side-by-side importance charts |
+| `shap_beeswarm_xgboost.png` | SHAP summary plot |
+| `model_metrics_comparison.png` | Bar chart comparing all models |
 
 ---
 
-> **Disclaimer:** This system is an academic prototype. It is not intended for production deployment and has not been hardened for internet-facing use.
+## ⚠️ Limitations
+
+- Features are **lexical only** — a well-crafted phishing URL with no suspicious keywords or structure may evade detection.
+- The `SENSITIVE_WORDS` and `SHORTENING_SERVICES` lists are static; they may need updates as new threats emerge.
+- Models were trained on a specific Kaggle dataset; performance on out-of-distribution URLs may differ.
+
+---
+
+## 📄 License
+
+This project is for educational purposes. Please review the dataset license on Kaggle before any commercial use.
