@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PhishGuard — URL Safety Scanner</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* ── CSS variables for both themes ─────────────────────────── */
+    :root {
+      --bg-base:       #eef1f7;
+      --bg-surface:    #ffffff;
+      --bg-raised:     #e8edf3;
+      --bg-subtle:     #f7f9fc;
+      --border:        #d1dbe8;
+      --border-soft:   #e2eaf4;
+      --text-primary:  #1a2740;
+      --text-secondary:#4a5d7a;
+      --text-muted:    #8097b5;
+      --accent:        #2e6be6;
+      --accent-glow:   rgba(46,107,230,0.15);
+      --safe:          #1d7a4b;
+      --safe-bg:       #e8f8f0;
+      --safe-border:   #a3d9bc;
+      --danger:        #c0392b;
+      --danger-bg:     #fdecea;
+      --danger-border: #f5a49e;
+      --warn:          #b8640a;
+      --warn-bg:       #fff3e0;
+      --shadow-sm:     0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md:     0 4px 16px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.04);
+      --shadow-lg:     0 8px 32px rgba(0,0,0,0.09), 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    [data-theme="dark"] {
+      --bg-base:       #0f1621;
+      --bg-surface:    #17202e;
+      --bg-raised:     #1e2a3d;
+      --bg-subtle:     #141c29;
+      --border:        #263347;
+      --border-soft:   #1e2d42;
+      --text-primary:  #e2eaf8;
+      --text-secondary:#8ba3c4;
+      --text-muted:    #4d6480;
+      --accent:        #4d8ef5;
+      --accent-glow:   rgba(77,142,245,0.18);
+      --safe:          #34c278;
+      --safe-bg:       #0d2820;
+      --safe-border:   #1e5c3a;
+      --danger:        #f5605a;
+      --danger-bg:     #2a100e;
+      --danger-border: #6b2321;
+      --warn:          #f5a623;
+      --warn-bg:       #2a1d0a;
+      --shadow-sm:     0 1px 3px rgba(0,0,0,0.25);
+      --shadow-md:     0 4px 16px rgba(0,0,0,0.35);
+      --shadow-lg:     0 8px 32px rgba(0,0,0,0.45);
+    }
+
+    /* ── Base ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      transition: background 0.3s ease, color 0.3s ease;
+      min-height: 100vh;
+    }
+
+    /* subtle dot-grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle, var(--border) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.25;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .content { position: relative; z-index: 1; }
+
+    /* ── Cards ──────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-md);
+      transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .card-inner {
+      background: var(--bg-raised);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+    }
+
+    /* ── Monospace text ─────────────────────────────────────────── */
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Scan button ────────────────────────────────────────────── */
+    .btn-scan {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 0 28px;
+      height: 52px;
+      font-family: 'Sora', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: filter 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .btn-scan:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .btn-scan:active:not(:disabled) { transform: translateY(0); }
+    .btn-scan:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── URL input ──────────────────────────────────────────────── */
+    .url-input {
+      width: 100%;
+      height: 52px;
+      background: var(--bg-subtle);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+    }
+    .url-input::placeholder { color: var(--text-muted); }
+    .url-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* ── Theme toggle ───────────────────────────────────────────── */
+    .theme-toggle {
+      background: var(--bg-raised);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      transition: all 0.2s ease;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Verdict card ───────────────────────────────────────────── */
+    .verdict-safe {
+      background: var(--safe-bg);
+      border-color: var(--safe-border) !important;
+    }
+    .verdict-phishing {
+      background: var(--danger-bg);
+      border-color: var(--danger-border) !important;
+    }
+    .verdict-icon {
+      font-size: 2.8rem;
+      line-height: 1;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.12));
+    }
+
+    /* ── Progress bar ───────────────────────────────────────────── */
+    .prob-bar-bg {
+      background: var(--bg-raised);
+      border-radius: 999px;
+      height: 12px;
+      overflow: hidden;
+    }
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .prob-bar-safe  { background: var(--safe); }
+    .prob-bar-phish { background: var(--danger); }
+
+    /* ── Table ──────────────────────────────────────────────────── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      background: var(--bg-raised);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      font-size: 0.88rem;
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--bg-subtle); }
+
+    /* ── Metric chips ───────────────────────────────────────────── */
+    .metric-chip {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 10px 16px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      min-width: 80px;
+    }
+    .metric-chip .val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .metric-chip .lbl {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ── Badges ─────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .badge-safe    { background: var(--safe-bg);   color: var(--safe);   border: 1px solid var(--safe-border); }
+    .badge-phish   { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+    .badge-stacking { background: var(--accent-glow); color: var(--accent); border: 1px solid var(--accent); font-size:0.7rem; }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* ── Pulse dot ───────────────────────────────────────────────── */
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 var(--accent-glow); }
+      70%  { box-shadow: 0 0 0 10px transparent; }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      background: var(--safe);
+      border-radius: 50%;
+      animation: pulse-ring 1.8s ease infinite;
+    }
+
+    /* ── Fade-in animation ───────────────────────────────────────── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-in { animation: fadeInUp 0.45s ease both; }
+
+    /* ── Section headers ─────────────────────────────────────────── */
+    .section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* ── Hidden util ─────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+
+    /* ── Scrollbar (subtle) ──────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="content max-w-5xl mx-auto px-4 py-8">
+
+  <header class="flex items-center justify-between mb-10">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl"
+           style="background:var(--accent-glow); border:1px solid var(--accent);">🛡️</div>
+      <div>
+        <h1 class="text-xl font-700 tracking-tight" style="color:var(--text-primary); font-weight:700;">PhishGuard</h1>
+        <p class="text-xs" style="color:var(--text-muted);">ML-Powered URL Safety Scanner</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+           style="background:var(--safe-bg); border:1px solid var(--safe-border); color:var(--safe);">
+        <div class="live-dot"></div>
+        5 Models Active
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle dark/light mode">
+        <span id="themeIcon">🌙</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="card p-7 mb-6">
+    <p class="section-label mb-4">Analyse a URL</p>
+    <div class="flex gap-3">
+      <input id="urlInput" class="url-input flex-1" type="url" autocomplete="off" spellcheck="false"
+             placeholder="https://example.com/path?query=value"
+             onkeydown="if(event.key==='Enter') scanUrl()" />
+      <button id="scanBtn" class="btn-scan" onclick="scanUrl()" style="flex-shrink:0;">
+        <span id="btnText">Scan URL</span>
+      </button>
+    </div>
+    <p class="text-xs mt-3" style="color:var(--text-muted);">
+      Paste any URL — supports HTTP, HTTPS, shortened links, and raw domains.
+    </p>
+  </div>
+
+  <div id="loadingSection" class="card p-10 mb-6 hidden">
+    <div class="flex flex-col items-center gap-4">
+      <div class="spinner"></div>
+      <p class="text-sm font-medium" style="color:var(--text-secondary);">Analysing URL across 5 models…</p>
+      <p class="mono text-xs" style="color:var(--text-muted);" id="loadingUrl"></p>
+    </div>
+  </div>
+
+  <div id="errorSection" class="card p-5 mb-6 hidden"
+       style="background:var(--danger-bg); border-color:var(--danger-border);">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">⚠️</span>
+      <div>
+        <p class="font-semibold text-sm" style="color:var(--danger);">Something went wrong</p>
+        <p id="errorMsg" class="text-xs mt-0.5" style="color:var(--text-secondary);"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultsSection" class="hidden animate-in">
+
+    <div id="verdictCard" class="card p-7 mb-6 animate-in">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div class="flex items-start gap-5 flex-1">
+          <div id="verdictIcon" class="verdict-icon" style="font-size:3rem; flex-shrink:0;">🛡️</div>
+          <div class="flex-1 min-w-0">
+            <p class="section-label mb-1">Stacking Classifier Verdict</p>
+            <h2 id="verdictLabel" class="font-bold tracking-tight mb-1" style="font-size:2rem; line-height:1.15;"></h2>
+            <p id="verdictDetail" class="text-sm" style="color:var(--text-secondary); max-width:520px;"></p>
+            <div class="flex gap-2 mt-3 flex-wrap" id="verdictBadges"></div>
+          </div>
+        </div>
+        <div class="flex flex-col items-end gap-0.5" style="flex-shrink:0;">
+          <div class="font-bold mono" id="verdictConfidence" style="color:var(--accent); font-size:2.5rem; line-height:1;"></div>
+          <p class="text-xs" style="color:var(--text-muted);">Confidence</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="card p-5">
+        <p class="section-label mb-3">Phishing Probability</p>
+        <div class="prob-bar-bg mb-3">
+          <div id="phishBar" class="prob-bar-fill prob-bar-phish" style="width:0%"></div>
+        </div>
+        <p id="phishPct" class="mono font-bold" style="color:var(--danger); font-size:1.6rem; line-height:1;"></p>
+        <p class="text-xs mt-1" style="color:var(--text-muted);">from Stacking Classifier</p>
+      </div>
+      <div class="card p-5">
+        <p class="section-label mb-3">Safe Probability</p>
+        <div class="prob-bar-bg mb-3">
+          <div id="safeBar" class="prob-bar-fill prob-bar-safe" style="width:0%"></div>
+        </div>
+        <p id="safePct" class="mono font-bold" style="color:var(--safe); font-size:1.6rem; line-height:1;"></p>
+        <p class="text-xs mt-1" style="color:var(--text-muted);">from Stacking Classifier</p>
+      </div>
+    </div>
+
+    <div class="card mb-6">
+      <div class="p-5 pb-0">
+        <p class="section-label mb-1">Comparative Model Analysis</p>
+        <p class="text-xs mb-4" style="color:var(--text-muted);">
+          Live predictions from all 5 ensemble models — higher phishing probability → greater threat signal.
+        </p>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Decision</th>
+              <th>Phishing %</th>
+              <th>Safe %</th>
+              <th>Confidence</th>
+              <th>Threat Signal</th>
+            </tr>
+          </thead>
+          <tbody id="modelTableBody"></tbody>
+        </table>
+      </div>
+      <div class="p-4 pt-3 flex items-center gap-2">
+        <span id="consensusText" class="text-xs" style="color:var(--text-muted);"></span>
+      </div>
+    </div>
+
+    <div class="card-inner p-4 mb-6 flex items-start gap-3">
+      <span class="text-base mt-0.5">🔗</span>
+      <div class="overflow-hidden">
+        <p class="section-label mb-1">Scanned URL</p>
+        <p id="scannedUrl" class="mono text-sm break-all" style="color:var(--text-secondary);"></p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card p-7 mt-2">
+    <div class="flex items-center gap-3 mb-5">
+      <div style="width:28px; height:28px; display:flex; align-items:center; justify-content:center;">
+        <span style="font-size:1.3rem;">📊</span>
+      </div>
+      <div>
+        <p class="section-label">Training Performance</p>
+        <p class="text-xs mt-0.5" style="color:var(--text-muted);">
+          Evaluated on held-out test set · ★ F1-Score is the primary metric
+        </p>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>★ F1-Score</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>ROC-AUC</th>
+            <th>PR-AUC</th>
+            <th>Accuracy</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name, m in metrics.items() %}
+          <tr {% if name == "Stacking Classifier" %}style="font-weight:700;"{% endif %}>
+            <td style="color:var(--text-primary); font-weight:500;">
+              {{ name }}
+              {% if name == "Stacking Classifier" %}
+              <span class="badge badge-stacking ml-2">Primary</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--accent); font-weight:{% if name == 'Stacking Classifier' %}700{% else %}400{% endif %};" class="mono">{{ "%.4f"|format(m.f1) }}</td>
+            <td class="mono" style="font-weight:{% if name == 'Stacking Classifier' %}700{% else %}400{% endif %};">{{ "%.4f"|format(m.precision) }}</td>
+            <td class="mono" style="font-weight:{% if name == 'Stacking Classifier' %}700{% else %}400{% endif %};">{{ "%.4f"|format(m.recall) }}</td>
+            <td class="mono" style="font-weight:{% if name == 'Stacking Classifier' %}700{% else %}400{% endif %};">{{ "%.4f"|format(m.roc_auc) }}</td>
+            <td class="mono" style="font-weight:{% if name == 'Stacking Classifier' %}700{% else %}400{% endif %};">{{ "%.4f"|format(m.pr_auc) }}</td>
+            <td class="mono" style="font-weight:{% if name == 'Stacking Classifier' %}700{% else %}400{% endif %};">{{ "%.4f"|format(m.accuracy) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer class="mt-8 text-center text-xs" style="color:var(--text-muted);">
+    PhishGuard · 5-model ensemble · Logistic Regression · Random Forest · XGBoost · Voting · Stacking
+  </footer>
+
+</div>
+
+<script>
+  /* ── Theme toggle ─────────────────────────────────────────── */
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
+    localStorage.setItem('phishguard-theme', isDark ? 'light' : 'dark');
+  }
+  // Restore saved theme
+  (function () {
+    const saved = localStorage.getItem('phishguard-theme');
+    if (saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.getElementById('themeIcon').textContent = '☀️';
+    }
+  })();
+
+  /* ── UI helpers ───────────────────────────────────────────── */
+  function show(id)  { document.getElementById(id).classList.remove('hidden'); }
+  function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+  function setText(id, val) { document.getElementById(id).textContent = val; }
+
+  function showError(msg) {
+    hide('loadingSection'); hide('resultsSection');
+    setText('errorMsg', msg);
+    show('errorSection');
+  }
+
+  /* ── Main scan function ───────────────────────────────────── */
+  async function scanUrl() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) {
+      document.getElementById('urlInput').focus();
+      return;
+    }
+
+    // Reset UI
+    hide('errorSection');
+    hide('resultsSection');
+    setText('loadingUrl', url.length > 60 ? url.slice(0, 60) + '…' : url);
+    show('loadingSection');
+    document.getElementById('scanBtn').disabled = true;
+    setText('btnText', 'Scanning…');
+
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+
+      hide('loadingSection');
+
+      if (data.error) { showError(data.error); return; }
+
+      renderResults(data);
+      show('resultsSection');
+    } catch (err) {
+      showError('Network error — is the Flask server running? ' + err.message);
+    } finally {
+      document.getElementById('scanBtn').disabled = false;
+      setText('btnText', 'Scan URL');
+    }
+  }
+
+  /* ── Render results ───────────────────────────────────────── */
+  function renderResults(data) {
+    const sv = data.stacking_verdict;
+    const isPhishing = sv && sv.prediction === 1;
+
+    // Verdict card styling
+    const verdictCard = document.getElementById('verdictCard');
+    verdictCard.classList.remove('verdict-safe', 'verdict-phishing');
+    verdictCard.classList.add(isPhishing ? 'verdict-phishing' : 'verdict-safe');
+
+    setText('verdictIcon', isPhishing ? '🚨' : '🛡️');
+    const verdictLabel = document.getElementById('verdictLabel');
+    verdictLabel.textContent = isPhishing ? 'PHISHING DETECTED' : 'SAFE URL';
+    verdictLabel.style.color = isPhishing ? 'var(--danger)' : 'var(--safe)';
+
+    setText('verdictDetail',
+      isPhishing
+        ? 'The Stacking Classifier has identified this URL as a phishing threat. Do not enter credentials or personal information.'
+        : 'The Stacking Classifier considers this URL safe. Always stay cautious with unfamiliar sites.'
+    );
+
+    if (sv) {
+      setText('verdictConfidence', sv.confidence + '%');
+      document.getElementById('phishBar').style.width = sv.phishing_probability + '%';
+      document.getElementById('safeBar').style.width  = sv.safe_probability + '%';
+      setText('phishPct', sv.phishing_probability + '%');
+      setText('safePct',  sv.safe_probability + '%');
+    }
+
+    // Badges
+    const badges = document.getElementById('verdictBadges');
+    badges.innerHTML = '';
+    const cls = isPhishing ? 'badge-phish' : 'badge-safe';
+    badges.innerHTML = `
+      <span class="badge ${cls}">${isPhishing ? '⚠️ Phishing' : '✅ Safe'}</span>
+      <span class="badge badge-stacking">Stacking Classifier</span>
+      <span class="badge badge-stacking">${data.phishing_votes}/${data.total_models} models flagged</span>
+    `;
+
+    // Scanned URL
+    setText('scannedUrl', data.url);
+
+    // Model table
+    const tbody = document.getElementById('modelTableBody');
+    tbody.innerHTML = '';
+    data.results.forEach(r => {
+      if (r.error) {
+        tbody.innerHTML += `
+          <tr>
+            <td style="color:var(--text-primary);font-weight:500;">${r.model}</td>
+            <td colspan="5" style="color:var(--danger);">Error: ${r.error}</td>
+          </tr>`;
+        return;
+      }
+      const ph = r.phishing_probability;
+      const isP = r.prediction === 1;
+      const barColor = isP ? 'var(--danger)' : 'var(--safe)';
+      const barPct   = ph;
+      const isStack  = r.model === 'Stacking Classifier';
+      tbody.innerHTML += `
+        <tr ${isStack ? 'style="background:var(--accent-glow);"' : ''}>
+          <td style="color:var(--text-primary);font-weight:${isStack?'600':'400'};">
+            ${r.model}${isStack ? ' <span class="badge badge-stacking ml-1">Primary</span>' : ''}
+          </td>
+          <td>
+            <span class="badge ${isP ? 'badge-phish' : 'badge-safe'}">
+              ${isP ? '⚠️ Phishing' : '✅ Safe'}
+            </span>
+          </td>
+          <td class="mono" style="color:${isP?'var(--danger)':'var(--text-secondary)'};">${ph}%</td>
+          <td class="mono" style="color:${!isP?'var(--safe)':'var(--text-secondary)'};">${r.safe_probability}%</td>
+          <td class="mono" style="color:var(--text-primary);">${r.confidence}%</td>
+          <td style="min-width:100px;">
+            <div class="prob-bar-bg">
+              <div class="prob-bar-fill" style="width:${barPct}%;background:${barColor};"></div>
+            </div>
+          </td>
+        </tr>`;
+    });
+
+    // Consensus text
+    setText('consensusText',
+      `Model consensus: ${data.phishing_votes} of ${data.total_models} models classify this URL as Phishing.`
+    );
+  }
+</script>
+</body>
+</html>
